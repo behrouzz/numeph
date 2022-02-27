@@ -4,6 +4,10 @@ from datetime import datetime
 from jplephem.spk import SPK
 from .julian import datetime_to_jd, jd_to_sec
 
+objects = {'mercury':0, 'venus':1, 'mars':3, 'jupiter':4,
+           'saturn':5, 'uranus':6, 'neptune':7, 'sun':8, 'moon':99}
+
+
 def save_segments(in_file, out_file, t1=None, t2=None, seg_list=None):
     """
     Save segments of bsp file in desired interval as a pickle file
@@ -102,4 +106,30 @@ def get_pos(file, segment_ind, time):
     fz = np.polynomial.chebyshev.Chebyshev(coef=cfz, domain=domains[rec])
 
     pos = np.vstack((fx(t),fy(t),fz(t))).T[0]
+    return pos
+
+
+def geocentric(name, t, file):
+    """
+    Get geocentric position of an object
+    
+    Parameters
+    ----------
+        name (str)   : name of object (planets, sun or moon)
+        t (datetime) : time for which the position is requested
+        file (str)   : path of pickle file
+    
+    Returns
+    ----------
+        pos (np.array): geocentric position of the object
+    """
+    
+    earB_ear = get_pos(file=file, segment_ind=10, time=t)
+    if objects[name]==99:
+        earB_moo = get_pos(file=file, segment_ind=9, time=t)
+        pos = earB_moo - earB_ear
+    else:
+        SSB_plaB = get_pos(file=file, segment_ind=objects[name], time=t)
+        SSB_earB = get_pos(file=file, segment_ind=2, time=t)
+        pos = SSB_plaB - earB_ear - SSB_earB
     return pos
