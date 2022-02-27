@@ -113,6 +113,20 @@ def geocentric(name, t, file):
     """
     Get geocentric position of an object
     
+    This function works with a pickle file created exactly with the following segments:
+    
+    Solar System Barycenter (0) -> Mercury Barycenter (1)
+    Solar System Barycenter (0) -> Venus Barycenter (2)
+    Solar System Barycenter (0) -> Earth Barycenter (3)
+    Solar System Barycenter (0) -> Mars Barycenter (4)
+    Solar System Barycenter (0) -> Jupiter Barycenter (5)
+    Solar System Barycenter (0) -> Saturn Barycenter (6)
+    Solar System Barycenter (0) -> Uranus Barycenter (7)
+    Solar System Barycenter (0) -> Neptune Barycenter (8)
+    Solar System Barycenter (0) -> Sun (10)
+    Earth Barycenter (3) -> Moon (301)
+    Earth Barycenter (3) -> Earth (399)
+    
     Parameters
     ----------
         name (str)   : name of object (planets, sun or moon)
