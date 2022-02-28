@@ -4,11 +4,24 @@ from datetime import datetime
 from jplephem.spk import SPK
 from .julian import datetime_to_jd, jd_to_sec
 
-objects = {'mercury':0, 'venus':1, 'mars':3, 'jupiter':4,
-           'saturn':5, 'uranus':6, 'neptune':7, 'sun':8, 'moon':99}
+objects = {'solar system barycenter': 0,
+           'mercury barycenter': 1,
+           'venus barycenter': 2,
+           'earth barycenter': 3,
+           'mars barycenter': 4,
+           'jupiter barycenter': 5,
+           'saturn barycenter': 6,
+           'uranus barycenter': 7,
+           'neptune barycenter': 8,
+           'pluto barycenter': 9,
+           'sun': 10,
+           'moon': 301,
+           'earth': 399,
+           'mercury': 199,
+           'venus': 299}
 
 
-def save_segments(in_file, out_file, t1=None, t2=None, seg_list=None):
+def save_segments(in_file, out_file, t1=None, t2=None, segs_tup=None):
     """
     Save segments of bsp file in desired interval as a pickle file
     
@@ -18,21 +31,23 @@ def save_segments(in_file, out_file, t1=None, t2=None, seg_list=None):
         out_file (str)  : path and name of pickle file to be created
         t1 (datetime)   : ephemeris start time
         t2 (datetime)   : ephemeris end time
-        seg_list (list) : index of segments to be included
+        segs_tup (list of tuples) : segments as (center, target) to be included
     """
     
     kernel = SPK.open(in_file)
     data = []
 
-    #select segments
-    if seg_list is None:
-        segments = kernel.segments
+    # select segments
+    all_segs = kernel.segments
+    all_segs_tup = [(i.center, i.target) for i in all_segs]
+    if segs_tup is None:
+        segs_tup = all_segs_tup
+        segments = all_segs
     else:
-        segments = [kernel.segments[i] for i in seg_list]
+        segments = [i for i in all_segs if (i.center, i.target) in segs_tup]
 
-    slicing = False
-    
     # select time interval
+    slicing = False
     if (t1 is not None) and (t2 is not None):
         t1 = jd_to_sec(datetime_to_jd(t1))
         t2 = jd_to_sec(datetime_to_jd(t2))
@@ -62,7 +77,7 @@ def save_segments(in_file, out_file, t1=None, t2=None, seg_list=None):
             coefficients = coefficients[:, rec1:rec2, :]
             domains = domains[rec1:rec2, :]
 
-        data.append([domains, coefficients])
+        data.append([(seg.center, seg.target), domains, coefficients])
 
     kernel.close()
     f = open(out_file, 'wb')
@@ -71,15 +86,15 @@ def save_segments(in_file, out_file, t1=None, t2=None, seg_list=None):
 
 
 
-def get_pos(file, segment_ind, time):
+def get_pos(file, seg_tup, t):
     """
     Get position of an object from a segment
     
     Parameters
     ----------
-        file (str): path of pickle file
-        segment_ind (int): index of segment to be used
-        time (datetime): time for which the position is requested
+        file (str)      : path of pickle file
+        seg_tup (tuple) : (center, target) of segment to be used
+        t (datetime)    : time for which the position is requested
     
     Returns
     ----------
@@ -89,9 +104,11 @@ def get_pos(file, segment_ind, time):
     f = open(file, 'rb')
     data = pickle.load(f)
     f.close()
+
+    data = [i for i in data if i[0]==seg_tup][0]
+    _, domains, coefficients = data
     
-    domains, coefficients = data[segment_ind]
-    jd = datetime_to_jd(time)
+    jd = datetime_to_jd(t)
     t = jd_to_sec(jd)
     
     mask = np.logical_and(t>=domains[:,0], t<domains[:,1])
@@ -109,27 +126,13 @@ def get_pos(file, segment_ind, time):
     return pos
 
 
-def geocentric(name, t, file):
+def geocentric(target, t, file):
     """
     Get geocentric position of an object
     
-    This function works with a pickle file created exactly with the following segments:
-    
-    Solar System Barycenter (0) -> Mercury Barycenter (1)
-    Solar System Barycenter (0) -> Venus Barycenter (2)
-    Solar System Barycenter (0) -> Earth Barycenter (3)
-    Solar System Barycenter (0) -> Mars Barycenter (4)
-    Solar System Barycenter (0) -> Jupiter Barycenter (5)
-    Solar System Barycenter (0) -> Saturn Barycenter (6)
-    Solar System Barycenter (0) -> Uranus Barycenter (7)
-    Solar System Barycenter (0) -> Neptune Barycenter (8)
-    Solar System Barycenter (0) -> Sun (10)
-    Earth Barycenter (3) -> Moon (301)
-    Earth Barycenter (3) -> Earth (399)
-    
     Parameters
     ----------
-        name (str)   : name of object (planets, sun or moon)
+        target (str) : name of the target, i.e. planet, sun or moon
         t (datetime) : time for which the position is requested
         file (str)   : path of pickle file
     
@@ -138,12 +141,17 @@ def geocentric(name, t, file):
         pos (np.array): geocentric position of the object
     """
     
-    earB_ear = get_pos(file=file, segment_ind=10, time=t)
-    if objects[name]==99:
-        earB_moo = get_pos(file=file, segment_ind=9, time=t)
+    target = target.lower()
+    if target not in objects.keys():
+        raise Exception('target not recognized!')
+    target = objects[target]
+    
+    earB_ear = get_pos(file=file, seg_tup=(3,399), t=t)
+    if target==301:
+        earB_moo = get_pos(file=file, seg_tup=(3,301), t=t)
         pos = earB_moo - earB_ear
-    else:
-        SSB_plaB = get_pos(file=file, segment_ind=objects[name], time=t)
-        SSB_earB = get_pos(file=file, segment_ind=2, time=t)
+    elif target in [1,2,4,5,6,7,8,9,10]:
+        SSB_plaB = get_pos(file=file, seg_tup=(0, target), t=t)
+        SSB_earB = get_pos(file=file, seg_tup=(0,3), time=t)
         pos = SSB_plaB - earB_ear - SSB_earB
     return pos
