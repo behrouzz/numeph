@@ -1,3 +1,3 @@
-from .core import save_segments, get_pos, geocentric
+from .core import SPK, get_pos, geocentric, load_txt
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

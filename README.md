@@ -14,20 +14,23 @@ Install the latest version of *numeph* from [PyPI](https://pypi.org/project/nume
 Requirements are *numpy* and *jplephem*
 
 
-## Save some segments from 'de440s.bsp' from 2020 to 2030:
+## Save some segments of 'de440s.bsp' from 2020 to 2030:
 
 ```python
 from datetime import datetime
-from numeph import save_segments
+from numeph import SPK
 
 t1 = datetime(2020, 1, 1)
 t2 = datetime(2030, 1, 1)
 
-save_segments(in_file='de440s.bsp',
-              out_file='de440s_2020_2030.pickle',
-              t1=t1,
-              t2=t2,
-              segs_tup=[(0,10), (0,3), (3,399), (3,301)])
+spk = SPK(fname='de440s.bsp', t1=t1, t2=t2,
+          segs_tup=[(0,10), (0,3), (3,399), (3,301)])
+
+# save as txt file
+spk.to_txt('de440s_2020_2030.txt')
+
+# save as pickle
+spk.to_pickle('de440s_2020_2030.pickle')
 ```
 
 ## get position of an object from a segment:
