@@ -3,7 +3,58 @@ import numpy as np
 from datetime import datetime
 from jplephem import spk
 from .julian import datetime_to_jd, jd_to_sec
-from .utils import objects, num2txt, txt2num, str2seg
+from .utils import objects, num2txt, txt2num
+
+
+class Segment:
+    def __init__(self, cet_tar, domain, coef):
+        self.cet_tar = cet_tar
+        self.center = cet_tar[0]
+        self.target = cet_tar[1]
+        self.domain = domain
+        self.coef = coef
+
+    def to_str(self):
+        cfx = self.coef[0,:,:]
+        cfy = self.coef[1,:,:]
+        cfz = self.coef[2,:,:]
+        cf_xyz = np.concatenate((cfx,cfy,cfz))
+        cf_str = num2txt(cf_xyz)
+        n_cols = cf_xyz.shape[1]
+        ini_dom = self.domain[0,0]
+        dt_rec = self.domain[0,1] - self.domain[0,0]
+        dt_dom = self.domain[-1,-1] - self.domain[0,0]
+        n_recs = cfx.shape[0]
+
+        first_row = [self.center, self.target, n_cols, n_recs, dt_rec, ini_dom, dt_dom]
+        first_row = ['segment'] + [str(int(i)) for i in first_row]
+        first_row = ','.join(first_row)+'\n'
+        return first_row + cf_str
+
+    def get_pos(self, t):
+        """
+        Get position of the object at time t
+        
+        Parameters
+        ----------
+            t (datetime)    : time for which the position is requested
+        
+        Returns
+        ----------
+            pos (np.array): position of the object at t
+        """
+        jd = datetime_to_jd(t)
+        t = jd_to_sec(jd)
+        mask = np.logical_and(t>=self.domain[:,0], t<self.domain[:,1])
+        rec = np.where(mask)[0][0] # record index
+        cfx = self.coef[0,rec,:]
+        cfy = self.coef[1,rec,:]
+        cfz = self.coef[2,rec,:]
+        fx = np.polynomial.chebyshev.Chebyshev(coef=cfx, domain=self.domain[rec])
+        fy = np.polynomial.chebyshev.Chebyshev(coef=cfy, domain=self.domain[rec])
+        fz = np.polynomial.chebyshev.Chebyshev(coef=cfz, domain=self.domain[rec])
+        pos = np.vstack((fx(t),fy(t),fz(t))).T[0]
+        return pos
 
 
 class SPK:
@@ -19,7 +70,9 @@ class SPK:
     """
     def __init__(self, fname, t1=None, t2=None, segs_tup=None):
         kernel = spk.SPK.open(fname)
-        self.data = []
+        self.segments = {}
+        self.array = {}
+        #self.data = []
 
         # select segments
         all_segs = kernel.segments
@@ -64,40 +117,23 @@ class SPK:
             if coefficients.shape[1]==0:
                 continue
 
-            self.data.append([(seg.center, seg.target), domains, coefficients])
+            #self.data.append([(seg.center, seg.target), domains, coefficients])
+            self.array[(seg.center, seg.target)] = [domains, coefficients]
+            self.segments[(seg.center, seg.target)] = \
+                        Segment((seg.center, seg.target), domains, coefficients)
         kernel.close()
 
     def to_txt(self, fname):
         all_str = ''
-        for seg_data in self.data:
-            cen_tar, dom, coef = seg_data
-            center, target = cen_tar
-
-            cfx = coef[0,:,:]
-            cfy = coef[1,:,:]
-            cfz = coef[2,:,:]
-
-            cf_xyz = np.concatenate((cfx,cfy,cfz))
-            cf_str = num2txt(cf_xyz)
-
-            n_cols = cf_xyz.shape[1]
-            ini_dom = dom[0,0]
-            dt_rec = dom[0,1] - dom[0,0]
-            dt_dom = dom[-1,-1] - dom[0,0]
-            n_recs = cfx.shape[0]
-
-            first_row = [center, target, n_cols, n_recs, dt_rec, ini_dom, dt_dom]
-            first_row = ['segment'] + [str(int(i)) for i in first_row]
-            first_row = ','.join(first_row)+'\n'
-            seg_str = first_row + cf_str
-            all_str = all_str + seg_str
+        for seg in self.segments.values():
+            all_str = all_str + seg.to_str()
         f = open(fname, 'w')
         f.write(all_str)
         f.close()
 
     def to_pickle(self, fname):
         f = open(fname, 'wb')
-        pickle.dump(self.data, f)
+        pickle.dump(self.array, f)
         f.close()
 
 
@@ -111,19 +147,27 @@ def load_txt(fname):
     
     Returns
     ----------
-        list: data as: [(center, target), domains, coefficients]
+        Dictionary of Segments
     """
+    dc = {}
     f = open(fname, 'r')
     all_str = f.read()
     f.close()
     fmt = 'segment,\d+,\d+,\d+,\d+,\d+,\d+,\d+\n'
     first_rows = re.findall(fmt, all_str)
     coef_rows = re.split(fmt, all_str)[1:]
-    data = []
     for i in range(len(first_rows)):
-        seg_data = str2seg(first_rows[i], coef_rows[i])
-        data.append(seg_data)
-    return data
+        first_row, cf_str = first_rows[i], coef_rows[i]
+        first_row = first_row.split(',')[1:]
+        first_row = [int(i) for i in first_row]
+        center, target, n_cols, n_recs, dt_rec, ini_dom, dt_dom = first_row
+        cf = txt2num(cf_str)
+        cf = cf.reshape((3,n_recs,n_cols))
+        domain = np.zeros((n_recs,2))
+        domain[:,0] = [ini_dom + i*dt_rec for i in range(n_recs)]
+        domain[:,1] = domain[:,0] + dt_rec
+        dc[(center, target)] = Segment((center,target), domain, cf)
+    return dc
     
 
 
