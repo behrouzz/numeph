@@ -33,28 +33,26 @@ spk.to_txt('de440s_2020_2030.txt')
 spk.to_pickle('de440s_2020_2030.pickle')
 ```
 
+## Load .txt or .pickle files:
+You can load the above saved files using *load_txt* and *load_pickle* functions. The will return a dictionary of Segment objects.
+
+```python
+from numeph import load_txt
+
+dc = load_txt('de440s_2020_2030.txt')
+```
+
+To access each segment, pass the (center, target) tuple as dictionary key.
+
+```python
+seg = dc[(3,301)]
+```
+
 ## get position of an object from a segment:
 
 ```python
-from datetime import datetime
-from numeph import get_pos
-
 t = datetime.utcnow()
-
-pos = get_pos(file='de440s_2020_2030.pickle',
-              seg_tup=(0,3), # Earth Barycenter wrt SSB
-              t=t)
-```
-
-## get geocentric position of an object:
-
-```python
-from datetime import datetime
-from numeph import geocentric
-
-t = datetime.utcnow()
-
-pos = geocentric(target='moon', file='de440s_2020_2030.pickle', t=t)
+pos = seg.get_pos(t)
 ```
 
 See more at [astrodatascience.net](https://astrodatascience.net/)
