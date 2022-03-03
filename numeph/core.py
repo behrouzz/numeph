@@ -136,6 +136,27 @@ class SPK:
         pickle.dump(self.array, f)
         f.close()
 
+        
+def load_pickle(fname):
+    """
+    Load an ephemeris pickle file
+    
+    Parameters
+    ----------
+        fname (str) : path and name of the pickle file
+    
+    Returns
+    ----------
+        Dictionary of Segments
+    """
+    f = open(fname, 'rb')
+    data = pickle.load(f)
+    f.close()
+    dc = {}
+    for k,v in data.items():
+        dc[k] = Segment(k, v[0], v[1])
+    return dc
+    
 
 def load_txt(fname):
     """
