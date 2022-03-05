@@ -111,10 +111,12 @@ class SPK:
                 mask2 = np.logical_and(t2>=domains[:,0], t2<domains[:,1])
                 rec1 = np.where(mask1)[0][0]
                 rec2 = np.where(mask2)[0][0]
-                if rec1!=rec2:
-                    rec2 = rec2 + 1
-                coefficients = coefficients[:, rec1:rec2, :]
-                domains = domains[rec1:rec2, :]
+                if rec1==rec2:
+                    coefficients = coefficients[:, rec1, :]
+                    domains = domains[rec1, :]
+                else:
+                    coefficients = coefficients[:, rec1:rec2+1, :]
+                    domains = domains[rec1:rec2+1, :]
 
             if coefficients.shape[1]==0:
                 continue
