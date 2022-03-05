@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="numeph",
-    version="0.3.3",
+    version="0.3.4",
     author="Behrouz Safari",
     author_email="behrouz.safari@gmail.com",
     description="Convert JPL SPK ephemeris to numpy array",

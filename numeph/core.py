@@ -112,8 +112,8 @@ class SPK:
                 rec1 = np.where(mask1)[0][0]
                 rec2 = np.where(mask2)[0][0]
                 if rec1==rec2:
-                    coefficients = coefficients[:, rec1, :]
-                    domains = domains[rec1, :]
+                    coefficients = coefficients[:, [rec1], :]
+                    domains = domains[[rec1], :]
                 else:
                     coefficients = coefficients[:, rec1:rec2+1, :]
                     domains = domains[rec1:rec2+1, :]
